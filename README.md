@@ -6,6 +6,7 @@ MIT-style. Do what you like with it.
 
 
 ![shardorb](shardorb.png)
+![shardorb](shardorb2.png)
 
 ## Install
 
