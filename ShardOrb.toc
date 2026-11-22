@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: ShardOrb
+## Notes: Minimal Necrosis-style soul shard orb for Warlocks. Shows shard count; three ring buttons cast your highest known rank of Create Healthstone, Create Soulstone and Ritual of Summoning.
+## Author: Chicken, master of poultry
+## Version: 1.0.9
+## SavedVariables: ShardOrbDB
+## IconTexture: Interface\Icons\INV_Misc_Gem_Amethyst_02
+
+ShardOrb.lua
