@@ -20,6 +20,7 @@ ShardOrb/
   ShardOrb.toc
   ShardOrb.lua
   shadowtrance.ogg   (optional, Nightfall sound)
+  shardorb.png
   README.md
 ```
 
@@ -66,9 +67,11 @@ When it **finishes**, they leave the queue. Interrupt keeps them listed.
 
 **Drain** (green) — Mechanical / golems. Drain Life and Siphon Life will not work.
 
+**Banish** (blue) — attackable Demon or Elemental. Same `UnitCreatureType` check Necrosis used.
+
 **Shadow Trance / Nightfall** (purple) — icon + `shadowtrance.ogg`. Forever blocks addons from reading your auras in combat (`Auras cannot be accessed when secret`), so the live proc is detected by **Shadow Bolt cast time going to 0**, not by scanning the buff list. The icon clears when the bolt is no longer instant.
 
-Drag the icons. `/so alerts` and `/so trance` toggle them.
+Drag the icons. `/so alerts` toggles fear / drain / banish. `/so trance` toggles Nightfall.
 
 ## Slash
 
@@ -78,7 +81,7 @@ Drag the icons. `/so alerts` and `/so trance` toggle them.
 | --- | --- |
 | `/so lock` / `unlock` / `reset` | Orb position |
 | `/so queue` / `queue clear` | Summon list |
-| `/so alerts` | Fear / drain icons |
+| `/so alerts` | Fear / drain / banish icons |
 | `/so trance` | Nightfall alert |
 | `/so trance test` | Force icon + sound (no real proc) |
 | `/so auras` | Debug dump of player auras / SB cast time |
@@ -96,4 +99,4 @@ This client is not retail and not a private server UI dump. In particular:
 
 ## Not included
 
-Full Necrosis: curse menus, timer bars, shard sorting, destroy-extra-shards, demon/elemental banish buttons, speech packs, Ace libraries.
+Full Necrosis: curse menus, timer bars, shard sorting, destroy-extra-shards, click-to-banish/enslave buttons, speech packs, Ace libraries.

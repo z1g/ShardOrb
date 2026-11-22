@@ -1096,13 +1096,15 @@ local FEAR_WARD_NAMES = {
     ["curse of recklessness"] = true,
 }
 
-local fearAlert, drainAlert
-local fearWasOn, drainWasOn
+local fearAlert, drainAlert, banishAlert
+local fearWasOn, drainWasOn, banishWasOn
 
 local function ClassifyCreatureType(ct)
     if not ct or IsSecret(ct) then return nil end
     local l = tostring(ct):lower()
     if l == "mechanical" or l:find("meca", 1, true) then return "mechanical" end
+    if l == "demon" or l == "démon" or l == "dämon" or l == "demonio" or l == "demone" then return "demon" end
+    if l == "elemental" or l:find("elementar", 1, true) or l:find("élémentaire", 1, true) then return "elemental" end
     if l == "undead" or l == "untoter" or l:find("undead", 1, true)
         or l:find("mort-vivant", 1, true) or l:find("no-muerto", 1, true) then
         return "undead"
@@ -1208,14 +1210,22 @@ local function EnsureAlertFrames()
         "Cannot Drain",
         "Drain Life / Siphon Life will not work (Mechanical / golem)."
     )
-    PlaceAlert(fearAlert, "ShardOrbFearAlert", -24, 10)
-    PlaceAlert(drainAlert, "ShardOrbDrainAlert", 24, 10)
+    banishAlert = MakeAlertIcon(
+        "ShardOrbBanishAlert",
+        "Interface\\Icons\\Spell_Shadow_Cripple",
+        0.45, 0.55, 0.95,
+        "Banishable",
+        "Demon or Elemental — Banish will stick."
+    )
+    PlaceAlert(fearAlert, "ShardOrbFearAlert", -28, 10)
+    PlaceAlert(drainAlert, "ShardOrbDrainAlert", 28, 10)
+    PlaceAlert(banishAlert, "ShardOrbBanishAlert", 0, 10)
 end
 
 UpdateTargetAlerts = function()
     EnsureAlertFrames()
     local db = EnsureDB()
-    local showFear, showDrain = false, false
+    local showFear, showDrain, showBanish = false, false, false
     if db.alerts ~= false
         and UnitExists and UnitExists("target")
         and UnitCanAttack and UnitCanAttack("player", "target")
@@ -1227,6 +1237,8 @@ UpdateTargetAlerts = function()
             showDrain = true
         elseif kind == "undead" and not player then
             showFear = true
+        elseif kind == "demon" or kind == "elemental" then
+            showBanish = true
         end
         if not showFear and TargetHasFearWard() then
             showFear = true
@@ -1245,7 +1257,13 @@ UpdateTargetAlerts = function()
     else
         drainAlert:Hide()
     end
-    fearWasOn, drainWasOn = showFear, showDrain
+    if showBanish then
+        banishAlert:Show()
+        if not banishWasOn and not showFear and not showDrain then PlayAlertSound() end
+    else
+        banishAlert:Hide()
+    end
+    fearWasOn, drainWasOn, banishWasOn = showFear, showDrain, showBanish
 end
 
 -- Nightfall / Shadow Trance: UNIT_AURA on the player (no combat log). Sound is the
@@ -1468,7 +1486,7 @@ end)
 -- player buffs a few times a second so it actually goes away.
 alertDriver:SetScript("OnUpdate", function(self, elapsed)
     local tranceUp = tranceAlert and tranceAlert:IsShown()
-    local targetUp = (fearAlert and fearAlert:IsShown()) or (drainAlert and drainAlert:IsShown())
+    local targetUp = (fearAlert and fearAlert:IsShown()) or (drainAlert and drainAlert:IsShown()) or (banishAlert and banishAlert:IsShown())
     self.alertAccum = (self.alertAccum or 0) + elapsed
     if self.alertAccum < 0.25 then return end
     self.alertAccum = 0
