@@ -1,0 +1,3 @@
+# Screenshots live on the GitHub release, not in the addon tree.
+# git archive / GitHub source zip skip these if they reappear.
+*.png export-ignore

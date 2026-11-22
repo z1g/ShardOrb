@@ -5,8 +5,8 @@ A small Warlock orb for **WoW Forever** (Interface 16001). Inspired by Necrosis,
 MIT-style. Do what you like with it.
 
 
-![shardorb](shardorb.png)
-![shardorb](shardorb2.png)
+![shardorb](https://github.com/z1g/ShardOrb/releases/download/v1.0.9/shardorb.png)
+![shardorb](https://github.com/z1g/ShardOrb/releases/download/v1.0.9/shardorb2.png)
 
 ## Install
 
@@ -21,7 +21,6 @@ ShardOrb/
   ShardOrb.toc
   ShardOrb.lua
   shadowtrance.ogg   (optional, Nightfall sound)
-  shardorb.png
   README.md
 ```
 
