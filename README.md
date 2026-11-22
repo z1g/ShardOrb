@@ -1,8 +1,9 @@
 # ShardOrb
-[shardorb](shardorb.png)
+
 A small Warlock orb for **WoW Forever** (Interface 16001). Inspired by Necrosis, not a port of it: shard count, a few casts, a summon queue, and a couple of combat warnings. No timers, no reagent shopping list, no menus.
 
 MIT-style. Do what you like with it.
+![shardorb](shardorb.png)
 
 ## Install
 
