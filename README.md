@@ -67,11 +67,11 @@ When it **finishes**, they leave the queue. Interrupt keeps them listed.
 
 ## Alerts
 
-**Fear** (red) — attackable NPC Undead or Mechanical, or a fear ward (Fear Ward, Berserker Rage, Divine Shield, etc.).
+**Fear** (red) — attackable NPC Undead or Mechanical, or a fear ward (Fear Ward, Berserker Rage, Divine Shield, etc.). Icon only, no sound.
 
-**Drain** (green) — Mechanical / golems. Drain Life and Siphon Life will not work.
+**Drain** (green) — Mechanical / golems. Drain Life and Siphon Life will not work. Icon only, no sound.
 
-**Banish** (blue) — attackable Demon or Elemental. Same `UnitCreatureType` check Necrosis used.
+**Banish** (blue) — attackable Demon or Elemental. Same `UnitCreatureType` check Necrosis used. Icon only, no sound.
 
 **Shadow Trance / Nightfall** (purple) — icon + `shadowtrance.ogg`. Forever blocks addons from reading your auras in combat (`Auras cannot be accessed when secret`), so the live proc is detected by **Shadow Bolt cast time going to 0**, not by scanning the buff list. The icon clears when the bolt is no longer instant.
 

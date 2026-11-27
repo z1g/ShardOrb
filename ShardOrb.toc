@@ -2,7 +2,7 @@
 ## Title: ShardOrb
 ## Notes: Minimal Necrosis-style soul shard orb for Warlocks. Shard count, stones, ritual, a demon flyout, Eye of Kilrogg and Unending Breath.
 ## Author: Chicken, master of poultry
-## Version: 1.1.0
+## Version: 1.1.1
 ## SavedVariables: ShardOrbDB
 ## IconTexture: Interface\Icons\INV_Misc_Gem_Amethyst_02
 

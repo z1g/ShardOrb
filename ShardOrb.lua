@@ -1234,7 +1234,6 @@ local FEAR_WARD_NAMES = {
 }
 
 local fearAlert, drainAlert, banishAlert
-local fearWasOn, drainWasOn, banishWasOn
 
 local function ClassifyCreatureType(ct)
     if not ct or IsSecret(ct) then return nil end
@@ -1341,14 +1340,6 @@ local function TargetHasFearWard()
     return ok and hit
 end
 
-local function PlayAlertSound()
-    -- RaidWarning.ogg is often missing on this client; PlaySoundFile existing
-    -- does not mean the file played. Try kit sounds too.
-    pcall(PlaySound, 8959, "Master")
-    pcall(PlaySound, 8959)
-    pcall(PlaySound, "RaidWarning")
-end
-
 local function MakeAlertIcon(name, icon, r, g, b, tooltipTitle, tooltipBody)
     local f = CreateFrame("Button", name, UIParent)
     f:SetSize(ALERT_SIZE, ALERT_SIZE)
@@ -1450,23 +1441,19 @@ UpdateTargetAlerts = function()
 
     if showFear then
         fearAlert:Show()
-        if not fearWasOn then PlayAlertSound() end
     else
         fearAlert:Hide()
     end
     if showDrain then
         drainAlert:Show()
-        if not drainWasOn and not showFear then PlayAlertSound() end
     else
         drainAlert:Hide()
     end
     if showBanish then
         banishAlert:Show()
-        if not banishWasOn and not showFear and not showDrain then PlayAlertSound() end
     else
         banishAlert:Hide()
     end
-    fearWasOn, drainWasOn, banishWasOn = showFear, showDrain, showBanish
 end
 
 -- Nightfall / Shadow Trance: UNIT_AURA on the player (no combat log). Sound is the
