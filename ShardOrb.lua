@@ -2,8 +2,9 @@
 --
 -- A tiny Necrosis-style soul shard orb for Warlocks: black disc with a purple ring,
 -- shard count in the middle, small bordered buttons nested tight against it
--- that cast Create Healthstone, Create Soulstone, Ritual of Summoning, and your four
--- demons (Imp, Voidwalker, Succubus, Felhunter). Nothing else: no timers, no buffs, no
+-- that cast Create Healthstone, Create Soulstone, Ritual of Summoning, Create Spellstone,
+-- Create Firestone, Eye of Kilrogg, Unending Breath, and a single Demons button whose
+-- click opens Imp / Voidwalker / Succubus / Felhunter. Nothing else: no timers, no
 -- reagent shopping list.
 --
 -- Built for WoW: Forever (Interface 16001), which shares the modern Mainline API:
@@ -22,17 +23,26 @@ local SHARD_ITEM_ID = 6265 -- Soul Shard, same id this client's reagent/bag API 
 -- name as the game shows it (every rank shares it; only subName differs).
 local SPELL_DEFS = {
     { key = "HEALTHSTONE", name = "Create Healthstone", fallbackIcon = "Interface\\Icons\\INV_Stone_04" },
-    { key = "SOULSTONE",   name = "Create Soulstone",   fallbackIcon = "Interface\\Icons\\INV_Misc_Orb_04" },
+    { key = "SOULSTONE",   name = "Create Soulstone",   fallbackIcon = "Interface\\Icons\\INV_Misc_Orb_04", stone = "soulstone" },
     { key = "RITUAL",      name = "Ritual of Summoning", fallbackIcon = "Interface\\Icons\\Spell_Shadow_Twilight" },
-    { key = "IMP",         name = "Summon Imp",          fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonImp" },
-    { key = "VOIDWALKER",  name = "Summon Voidwalker",   fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonVoidwalker" },
-    { key = "SUCCUBUS",    name = "Summon Succubus",     fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonSuccubus" },
-    { key = "FELHUNTER",   name = "Summon Felhunter",    fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonFelhunter" },
+    { key = "DEMON",       name = "Demons",              fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonImp", menu = true },
+    { key = "SPELLSTONE",  name = "Create Spellstone",  fallbackIcon = "Interface\\Icons\\INV_Misc_Gem_Sapphire_01", stone = "spellstone" },
+    { key = "FIRESTONE",   name = "Create Firestone",   fallbackIcon = "Interface\\Icons\\INV_Ammo_FireTar", stone = "firestone" },
+    { key = "KILROGG",     name = "Eye of Kilrogg",     fallbackIcon = "Interface\\Icons\\Spell_Shadow_EvilEye" },
+    { key = "BREATH",      name = "Unending Breath",    fallbackIcon = "Interface\\Icons\\Spell_Shadow_DemonBreath" },
+}
+
+-- Flyout behind the Demons orbit button. Macros are set once at creation.
+local DEMON_DEFS = {
+    { key = "IMP",        name = "Summon Imp",        fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonImp" },
+    { key = "VOIDWALKER", name = "Summon Voidwalker", fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonVoidwalker" },
+    { key = "SUCCUBUS",   name = "Summon Succubus",   fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonSuccubus" },
+    { key = "FELHUNTER",  name = "Summon Felhunter",  fallbackIcon = "Interface\\Icons\\Spell_Shadow_SummonFelhunter" },
 }
 
 local SPHERE_SIZE = 64
 local BUTTON_SIZE = 30
-local ORBIT_RADIUS = 40 -- nudged out a bit so the bigger buttons don't overlap each other
+local ORBIT_RADIUS = 48 -- eight orbit buttons; 40px was too tight
 local BORDER_THICKNESS = 3
 local SPHERE_RING_THICKNESS = 8 -- purple band
 local SPHERE_OUTER_THICKNESS = 3 -- black rim outside the purple
@@ -122,29 +132,60 @@ local function CountShardsInBags()
     return count, ready
 end
 
--- Classic / Forever soulstone item ids (Create Soulstone still leaves a bag item).
+-- Classic / Forever stone item ids (create still leaves a bag item).
 -- Highest rank first so /use hits the best stone if more than one is sitting around.
-local SOULSTONE_ID_ORDER = { 36895, 22116, 16896, 16895, 16893, 16892, 5232 }
-local SOULSTONE_IDS = {}
-for _, id in ipairs(SOULSTONE_ID_ORDER) do
-    SOULSTONE_IDS[id] = true
+local STONE_KINDS = {
+    soulstone = {
+        ids = { 36895, 22116, 16896, 16895, 16893, 16892, 5232 },
+        needle = "soulstone",
+        create = "Create Soulstone",
+        buttonKey = "SOULSTONE",
+        useOn = "target",
+        useLabel = "Use Soulstone",
+        useHint = "Applies to your current target.",
+    },
+    spellstone = {
+        ids = { 41196, 41195, 41194, 41193, 41192, 41191, 22646, 13603, 13602, 5522 },
+        needle = "spellstone",
+        create = "Create Spellstone",
+        buttonKey = "SPELLSTONE",
+        useOn = "weapon",
+        useLabel = "Apply Spellstone",
+        useHint = "Applies to your equipped weapon.",
+    },
+    firestone = {
+        ids = { 41173, 41172, 41171, 41170, 41169, 22128, 13701, 13700, 13699, 1254 },
+        needle = "firestone",
+        create = "Create Firestone",
+        buttonKey = "FIRESTONE",
+        useOn = "weapon",
+        useLabel = "Apply Firestone",
+        useHint = "Applies to your equipped weapon.",
+    },
+}
+for _, kind in pairs(STONE_KINDS) do
+    kind.idSet = {}
+    for _, id in ipairs(kind.ids) do
+        kind.idSet[id] = true
+    end
 end
 
 local function CombatLocked()
     return InCombatLockdown ~= nil and InCombatLockdown()
 end
 
-local function IsSoulstoneName(name)
-    if type(name) ~= "string" then return false end
+local function IsStoneItemName(name, needle)
+    if type(name) ~= "string" or type(needle) ~= "string" then return false end
     local l = name:lower()
-    return l:find("soulstone", 1, true) ~= nil and l:find("create", 1, true) == nil
+    return l:find(needle, 1, true) ~= nil and l:find("create", 1, true) == nil
 end
 
--- Returns itemID, name (either may be nil). Used to swap the soulstone button
--- between Create and /use on the current target.
-local function FindSoulstoneInBags()
+-- Returns itemID, name (either may be nil). Used to swap a stone button
+-- between Create and /use.
+local function FindStoneInBags(kind)
+    if not kind then return nil, nil end
     if C_Item and C_Item.GetItemCount then
-        for _, id in ipairs(SOULSTONE_ID_ORDER) do
+        for _, id in ipairs(kind.ids) do
             local n = ReadableNumber(C_Item.GetItemCount(id))
             if n and n > 0 then
                 local name
@@ -175,7 +216,7 @@ local function FindSoulstoneInBags()
                         name = link:match("%[(.-)%]")
                     end
                 end
-                if (id and SOULSTONE_IDS[id]) or IsSoulstoneName(name) then
+                if (id and kind.idSet[id]) or IsStoneItemName(name, kind.needle) then
                     foundId, foundName = id, name
                     return
                 end
@@ -185,10 +226,21 @@ local function FindSoulstoneInBags()
     return foundId, foundName
 end
 
-local function SoulstoneUseMacro(id, name)
+local function FindSoulstoneInBags()
+    return FindStoneInBags(STONE_KINDS.soulstone)
+end
+
+local function StoneUseMacro(kind, id, name)
     local itemRef = id and ("item:" .. tostring(id)) or name
-    -- Exact request: apply to the player's current target (not a self fallback).
-    return "/use [@target] " .. itemRef
+    if kind.useOn == "target" then
+        -- Soulstone: apply to the player's current target (not a self fallback).
+        return "/use [@target] " .. itemRef
+    end
+    -- Spellstone / Firestone: Forever puts you in "apply to item" cursor mode
+    -- after a lone /use. Second line is the poison/oil trick — use slot 16
+    -- (main hand) so it lands on the equipped weapon without the paper doll.
+    local slot = ReadableNumber(INVSLOT_MAINHAND) or 16
+    return "/use " .. itemRef .. "\n/use " .. tostring(slot)
 end
 
 -- Draws a bordered circle on `parent`: a slightly larger BACKGROUND disc behind an
@@ -232,9 +284,9 @@ end
 
 -- Forward declarations: the slash command below needs to be able to call these even
 -- though they're only actually built further down the file.
-local sphere, buttons, RestorePosition, RefreshShardCount, RefreshSpells, RefreshSoulstoneButton, BuildError, didInit, DumpSpellbook, DumpBagDiagnostics, loginElapsed, pollActive
+local sphere, buttons, demonMenu, RestorePosition, RefreshShardCount, RefreshSpells, RefreshSoulstoneButton, RefreshStoneButtons, ToggleDemonMenu, BuildError, didInit, DumpSpellbook, DumpBagDiagnostics, loginElapsed, pollActive
 local EnsureSummonQueueWindow, UpdateSummonQueueDisplay, ToggleSummonQueue, ClearSummonQueue, RebuildSummonQueueSecureRows
-local UpdateTargetAlerts, UpdateShadowTrance, TestShadowTrance, DumpPlayerAuras
+local UpdateTargetAlerts, UpdateShadowTrance, TestShadowTrance, DumpPlayerAuras, DumpTargetAlert
 local RefreshRingChunks
 
 ----------------------------------------------------------------------
@@ -278,9 +330,12 @@ SlashCmdList["SHARDORB"] = function(msg)
         local count, ready = CountShardsInBags()
         print("  count now: " .. tostring(count) .. " ready=" .. tostring(ready))
         print("  last bag index: " .. tostring(LastBagIndex()))
-        local ssId, ssName = FindSoulstoneInBags()
-        print("  soulstone in bags: " .. tostring(ssId or ssName or "none"))
-        print("  soulstone button: " .. tostring(buttons and buttons.SOULSTONE and buttons.SOULSTONE.ssMode))
+        for _, kind in pairs(STONE_KINDS) do
+            local id, name = FindStoneInBags(kind)
+            local b = buttons and buttons[kind.buttonKey]
+            print("  " .. kind.needle .. " in bags: " .. tostring(id or name or "none"))
+            print("  " .. kind.needle .. " button: " .. tostring(b and b.ssMode))
+        end
         print("  class: " .. tostring(UnitClassBase and UnitClassBase("player")))
     elseif msg == "refresh" then
         if RefreshSpells then RefreshSpells() end
@@ -302,6 +357,8 @@ SlashCmdList["SHARDORB"] = function(msg)
         db.alerts = not (db.alerts ~= false)
         print("ShardOrb: target alerts " .. (db.alerts and "on" or "off"))
         if UpdateTargetAlerts then UpdateTargetAlerts() end
+    elseif msg == "target" then
+        if DumpTargetAlert then DumpTargetAlert() else print("ShardOrb: target dumper not ready yet.") end
     elseif msg == "auras" then
         if DumpPlayerAuras then DumpPlayerAuras() else print("ShardOrb: aura dumper not ready yet.") end
     elseif msg == "trance test" then
@@ -312,7 +369,7 @@ SlashCmdList["SHARDORB"] = function(msg)
         print("ShardOrb: shadow trance alert " .. (db.trance and "on" or "off"))
         if UpdateShadowTrance then UpdateShadowTrance() end
     else
-        print("ShardOrb: /shardorb lock | unlock | reset | status | refresh | count | spells | queue | queue clear | alerts | trance | trance test | auras")
+        print("ShardOrb: /so lock | unlock | reset | status | refresh | count | spells | queue | queue clear | alerts | trance | trance test | auras | target")
     end
 end
 
@@ -359,7 +416,9 @@ DumpSpellbook = function()
                 local info = C_SpellBook.GetSpellBookItemInfo(j, Enum.SpellBookSpellBank.Player)
                 if info then
                     local lname = tostring(info.name or "?"):lower()
-                    if lname:find("heal") or lname:find("soul") or lname:find("ritual") or lname:find("summon") then
+                    if lname:find("heal") or lname:find("soul") or lname:find("ritual") or lname:find("summon")
+                    or lname:find("firestone") or lname:find("spellstone") or lname:find("kilrogg")
+                    or lname:find("breath") or lname:find("unending") then
                         print(string.format("    slot %d: type=%s action=%s name=%q subName=%q",
                             j, tostring(info.itemType), tostring(info.actionID), tostring(info.name), tostring(info.subName)))
                     end
@@ -395,6 +454,9 @@ local function BuildFrames()
 
     sphere:SetScript("OnDragStart", function(self)
         if EnsureDB().locked then return end
+        if demonMenu and demonMenu:IsShown() and not CombatLocked() then
+            demonMenu:Hide()
+        end
         self:StartMoving()
     end)
     sphere:SetScript("OnDragStop", function(self)
@@ -418,20 +480,34 @@ local function BuildFrames()
     buttons = {}
 
     local numButtons = #SPELL_DEFS
+    local demonAngle
     for i, def in ipairs(SPELL_DEFS) do
-        local b = CreateFrame("Button", "ShardOrb" .. def.key, sphere, "SecureActionButtonTemplate")
+        local b
+        if def.menu then
+            b = CreateFrame("Button", "ShardOrb" .. def.key, sphere)
+        else
+            b = CreateFrame("Button", "ShardOrb" .. def.key, sphere, "SecureActionButtonTemplate")
+        end
         b:SetSize(BUTTON_SIZE, BUTTON_SIZE)
-        b:RegisterForClicks("AnyUp", "AnyDown")
-        -- Set once at creation. Soulstone is the exception: out of combat we rewrite
-        -- macrotext to /use on target once a stone exists (see RefreshSoulstoneButton).
-        b:SetAttribute("type", "macro")
-        b:SetAttribute("macrotext", "/cast " .. def.name)
-
         -- Evenly spaced around the full ring, starting at the bottom (270°) so the
         -- first few buttons land where the old hand-placed layout used to sit.
         local angle = math.rad(270 + (i - 1) * (360 / numButtons))
+        if def.menu then demonAngle = angle end
         b:SetPoint("CENTER", sphere, "CENTER", math.cos(angle) * ORBIT_RADIUS, math.sin(angle) * ORBIT_RADIUS)
         b:SetFrameLevel(sphere:GetFrameLevel() + 2)
+
+        if def.menu then
+            b:RegisterForClicks("AnyUp")
+            b:SetScript("OnClick", function()
+                if ToggleDemonMenu then ToggleDemonMenu() end
+            end)
+        else
+            b:RegisterForClicks("AnyUp", "AnyDown")
+            -- Set once at creation. Stone buttons are the exception: out of combat
+            -- we rewrite macrotext to /use once a stone exists (see RefreshStoneButtons).
+            b:SetAttribute("type", "macro")
+            b:SetAttribute("macrotext", "/cast " .. def.name)
+        end
 
         local fill = MakeBorderedCircle(b)
         fill:SetTexture(def.fallbackIcon)
@@ -439,9 +515,13 @@ local function BuildFrames()
 
         b:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            if def.key == "SOULSTONE" and self.ssMode and self.ssMode ~= "create" then
-                GameTooltip:SetText("Use Soulstone")
-                GameTooltip:AddLine("Applies to your current target.", 1, 1, 1)
+            local kind = def.stone and STONE_KINDS[def.stone]
+            if kind and self.ssMode and self.ssMode ~= "create" then
+                GameTooltip:SetText(kind.useLabel)
+                GameTooltip:AddLine(kind.useHint, 1, 1, 1)
+            elseif def.menu then
+                GameTooltip:SetText("Demons")
+                GameTooltip:AddLine("Click for Imp, Voidwalker, Succubus, Felhunter.", 1, 1, 1)
             else
                 local ok3 = pcall(GameTooltip.SetSpellByID, GameTooltip, def.name)
                 if not ok3 then
@@ -454,6 +534,40 @@ local function BuildFrames()
 
         def.button = b
         buttons[def.key] = b
+    end
+
+    -- Pet flyout: four secure buttons, macros set once. Parent is a plain frame so
+    -- we can Show/Hide it; Forever still may refuse that in combat.
+    demonMenu = CreateFrame("Frame", "ShardOrbDemonMenu", sphere)
+    demonMenu:SetSize(1, 1)
+    demonMenu:SetPoint("CENTER", sphere, "CENTER")
+    demonMenu:Hide()
+    local spread = math.rad(20)
+    local menuRadius = ORBIT_RADIUS + BUTTON_SIZE + 8
+    local base = demonAngle or math.rad(45)
+    for i, ddef in ipairs(DEMON_DEFS) do
+        local b = CreateFrame("Button", "ShardOrb" .. ddef.key, demonMenu, "SecureActionButtonTemplate")
+        b:SetSize(BUTTON_SIZE, BUTTON_SIZE)
+        b:RegisterForClicks("AnyUp", "AnyDown")
+        b:SetAttribute("type", "macro")
+        b:SetAttribute("macrotext", "/cast " .. ddef.name)
+        local a = base + (i - (1 + #DEMON_DEFS) / 2) * spread
+        b:SetPoint("CENTER", sphere, "CENTER", math.cos(a) * menuRadius, math.sin(a) * menuRadius)
+        b:SetFrameLevel(sphere:GetFrameLevel() + 4)
+        local fill = MakeBorderedCircle(b)
+        fill:SetTexture(ddef.fallbackIcon)
+        b.icon = fill
+        b:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            local ok3 = pcall(GameTooltip.SetSpellByID, GameTooltip, ddef.name)
+            if not ok3 then
+                GameTooltip:SetText(ddef.name)
+            end
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", GameTooltip_Hide)
+        ddef.button = b
+        buttons[ddef.key] = b
     end
 end
 
@@ -526,49 +640,72 @@ end
 
 RefreshSpells = function()
     if not buttons then return end
-    for _, def in ipairs(SPELL_DEFS) do
+    local function paint(def)
         local b = def.button
-        if b and b.icon then
-            local texPath
-            if C_Spell and C_Spell.GetSpellTexture then
-                texPath = C_Spell.GetSpellTexture(def.name)
+        if not (b and b.icon) then return end
+        local texPath
+        if not def.menu and C_Spell and C_Spell.GetSpellTexture then
+            texPath = C_Spell.GetSpellTexture(def.name)
+        end
+        b.icon:SetTexture(texPath or def.fallbackIcon)
+    end
+    for _, def in ipairs(SPELL_DEFS) do paint(def) end
+    for _, def in ipairs(DEMON_DEFS) do paint(def) end
+end
+
+ToggleDemonMenu = function()
+    if not demonMenu then return end
+    local function flip()
+        if demonMenu:IsShown() then demonMenu:Hide() else demonMenu:Show() end
+    end
+    if CombatLocked() then
+        local ok = pcall(flip)
+        if not ok then
+            print("ShardOrb: demon menu can't open or close in combat. Open it before the fight.")
+        end
+        return
+    end
+    flip()
+end
+
+-- Create the stone when bags have none; once one exists, the same click uses it
+-- (soulstone on target, spellstone/firestone on the equipped weapon). Secure
+-- attributes can only change out of combat on this client — if a stone
+-- appears/disappears mid-fight we wait for PLAYER_REGEN_ENABLED.
+local lastStoneKey = {}
+local stoneDirty = false
+
+RefreshStoneButtons = function()
+    if not buttons then return end
+    if CombatLocked() then
+        stoneDirty = true
+        return
+    end
+    stoneDirty = false
+    for _, kind in pairs(STONE_KINDS) do
+        local b = buttons[kind.buttonKey]
+        if b then
+            local id, name = FindStoneInBags(kind)
+            local key, macro
+            if id or name then
+                key = "use:" .. tostring(id or name)
+                macro = StoneUseMacro(kind, id, name)
+            else
+                key = "create"
+                macro = "/cast " .. kind.create
             end
-            b.icon:SetTexture(texPath or def.fallbackIcon)
+            b.ssMode = key
+            if key ~= lastStoneKey[kind.buttonKey] then
+                lastStoneKey[kind.buttonKey] = key
+                b:SetAttribute("type", "macro")
+                b:SetAttribute("macrotext", macro)
+            end
         end
     end
 end
 
--- Create Soulstone when bags have no stone; once one exists, the same click uses it
--- on the current target. Secure attributes can only change out of combat on this
--- client — if a stone appears/disappears mid-fight we wait for PLAYER_REGEN_ENABLED.
-local lastSoulstoneKey
-local soulstoneDirty = false
-
 RefreshSoulstoneButton = function()
-    local b = buttons and buttons.SOULSTONE
-    if not b then return end
-    if CombatLocked() then
-        soulstoneDirty = true
-        return
-    end
-    soulstoneDirty = false
-    local id, name = FindSoulstoneInBags()
-    local key, macro
-    if id or name then
-        key = "use:" .. tostring(id or name)
-        macro = SoulstoneUseMacro(id, name)
-    else
-        key = "create"
-        macro = "/cast Create Soulstone"
-    end
-    if key == lastSoulstoneKey then
-        b.ssMode = key
-        return
-    end
-    lastSoulstoneKey = key
-    b:SetAttribute("type", "macro")
-    b:SetAttribute("macrotext", macro)
-    b.ssMode = key
+    if RefreshStoneButtons then RefreshStoneButtons() end
 end
 
 RestorePosition = function()
@@ -1112,6 +1249,68 @@ local function ClassifyCreatureType(ct)
     return l
 end
 
+-- Forever can make UnitCreatureType / UnitCanAttack secret in combat (same wall
+-- as auras). Cache the last readable type per GUID, and guess golems/undead
+-- from the unit name when the type string is hidden.
+local creatureKindByGuid = {}
+
+local function SafeCall(fn, ...)
+    if not fn then return nil, "missing" end
+    local ok, v = pcall(fn, ...)
+    if not ok then return nil, v end
+    if IsSecret(v) then return nil, "secret" end
+    return v, nil
+end
+
+local function NameGuessKind(name)
+    if not name or IsSecret(name) then return nil end
+    local l = tostring(name):lower()
+    if l:find("golem", 1, true) or l:find("shredder", 1, true) or l:find("harvest", 1, true) then
+        return "mechanical"
+    end
+    if l:find("skeleton", 1, true) or l:find("zombie", 1, true) or l:find("ghoul", 1, true)
+        or l:find("wraith", 1, true) or l:find("banshee", 1, true) or l:find("abomination", 1, true) then
+        return "undead"
+    end
+    return nil
+end
+
+local function ReadTargetKind()
+    local raw, err = SafeCall(UnitCreatureType, "target")
+    local kind = ClassifyCreatureType(raw)
+    local guid = select(1, SafeCall(UnitGUID, "target"))
+    if kind and guid then
+        creatureKindByGuid[guid] = kind
+    end
+    if not kind and guid then
+        kind = creatureKindByGuid[guid]
+    end
+    if not kind then
+        local n = select(1, SafeCall(UnitName, "target"))
+        kind = NameGuessKind(n)
+    end
+    return kind, raw, err
+end
+
+DumpTargetAlert = function()
+    local db = EnsureDB()
+    local exists, e1 = SafeCall(UnitExists, "target")
+    local dead, e2 = SafeCall(UnitIsDead, "target")
+    local attack, e3 = SafeCall(UnitCanAttack, "player", "target")
+    local player, e4 = SafeCall(UnitIsPlayer, "target")
+    local kind, raw, terr = ReadTargetKind()
+    local n = select(1, SafeCall(UnitName, "target"))
+    print("ShardOrb target:")
+    print("  alerts=" .. tostring(db.alerts ~= false) .. " name=" .. tostring(n))
+    print("  exists=" .. tostring(exists) .. " err=" .. tostring(e1))
+    print("  dead=" .. tostring(dead) .. " err=" .. tostring(e2))
+    print("  attack=" .. tostring(attack) .. " err=" .. tostring(e3))
+    print("  player=" .. tostring(player) .. " err=" .. tostring(e4))
+    print("  typeRaw=" .. tostring(raw) .. " kind=" .. tostring(kind) .. " typeErr=" .. tostring(terr))
+    print("  frames fear=" .. tostring(fearAlert and fearAlert:IsShown()) .. " drain=" .. tostring(drainAlert and drainAlert:IsShown()) .. " banish=" .. tostring(banishAlert and banishAlert:IsShown()))
+    if UpdateTargetAlerts then UpdateTargetAlerts() end
+end
+
 local function TargetHasFearWard()
     local function scan(filter)
         for i = 1, 40 do
@@ -1143,11 +1342,11 @@ local function TargetHasFearWard()
 end
 
 local function PlayAlertSound()
-    if PlaySoundFile then
-        pcall(PlaySoundFile, "Sound\\Interface\\RaidWarning.ogg")
-    elseif PlaySound then
-        pcall(PlaySound, 8959)
-    end
+    -- RaidWarning.ogg is often missing on this client; PlaySoundFile existing
+    -- does not mean the file played. Try kit sounds too.
+    pcall(PlaySound, 8959, "Master")
+    pcall(PlaySound, 8959)
+    pcall(PlaySound, "RaidWarning")
 end
 
 local function MakeAlertIcon(name, icon, r, g, b, tooltipTitle, tooltipBody)
@@ -1226,22 +1425,26 @@ UpdateTargetAlerts = function()
     EnsureAlertFrames()
     local db = EnsureDB()
     local showFear, showDrain, showBanish = false, false, false
-    if db.alerts ~= false
-        and UnitExists and UnitExists("target")
-        and UnitCanAttack and UnitCanAttack("player", "target")
-        and not (UnitIsDead and UnitIsDead("target")) then
-        local kind = ClassifyCreatureType(UnitCreatureType and UnitCreatureType("target"))
-        local player = UnitIsPlayer and UnitIsPlayer("target")
-        if kind == "mechanical" then
-            showFear = true
-            showDrain = true
-        elseif kind == "undead" and not player then
-            showFear = true
-        elseif kind == "demon" or kind == "elemental" then
-            showBanish = true
-        end
-        if not showFear and TargetHasFearWard() then
-            showFear = true
+    local exists = SafeCall(UnitExists, "target")
+    local dead = SafeCall(UnitIsDead, "target")
+    local attack = SafeCall(UnitCanAttack, "player", "target")
+    -- nil = API secret/missing: do not treat as "no target". false = really no.
+    if db.alerts ~= false and exists ~= false and dead ~= true and attack ~= false then
+        if exists == true or (exists == nil and SafeCall(UnitName, "target")) then
+            local kind = ReadTargetKind()
+            local player = SafeCall(UnitIsPlayer, "target")
+            if kind == "mechanical" then
+                showFear = true
+                showDrain = true
+            elseif kind == "undead" and player ~= true then
+                showFear = true
+            elseif kind == "demon" or kind == "elemental" then
+                showBanish = true
+            end
+            if not showFear then
+                local okWard, hit = pcall(TargetHasFearWard)
+                if okWard and hit then showFear = true end
+            end
         end
     end
 
@@ -1565,7 +1768,7 @@ driver:SetScript("OnEvent", function(self, event)
             Init()
         else
             pcall(RefreshShardCount)
-            if event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" or event == "PLAYER_REGEN_ENABLED" or soulstoneDirty then
+            if event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" or event == "PLAYER_REGEN_ENABLED" or stoneDirty then
                 pcall(RefreshSoulstoneButton)
             end
             if event == "PLAYER_REGEN_ENABLED" and queueDirty then

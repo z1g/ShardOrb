@@ -1,6 +1,6 @@
 # ShardOrb
 
-A small Warlock orb for **WoW Forever** (Interface 16001). Inspired by Necrosis, not a port of it: shard count, a few casts, a summon queue, and a couple of combat warnings. No timers, no reagent shopping list, no menus.
+A small Warlock orb for **WoW Forever** (Interface 16001). Inspired by Necrosis, not a port of it: shard count, a few casts, a demon flyout, a summon queue, and a couple of combat warnings. No timers, no reagent shopping list.
 
 MIT-style. Do what you like with it.
 
@@ -39,9 +39,13 @@ Orbit buttons (macros, highest rank by name):
 | Create Healthstone | Create only (bind use yourself) |
 | Create Soulstone | Create if you have no stone; `/use` on your **current target** if you do |
 | Ritual of Summoning | Cast |
-| Imp / Voidwalker / Succubus / Felhunter | Summon |
+| Demons | Opens Imp / Voidwalker / Succubus / Felhunter |
+| Create Spellstone | Create if you have no stone; second click applies it to your **main-hand weapon** (`/use` the stone, then `/use 16`) |
+| Create Firestone | Create if you have no stone; second click applies it to your **main-hand weapon** (`/use` the stone, then `/use 16`) |
+| Eye of Kilrogg | Cast |
+| Unending Breath | Cast |
 
-Soulstone create vs use is rewritten **out of combat** only. Forever will not change a secure button in a fight.
+Soulstone / Spellstone / Firestone create vs use is rewritten **out of combat** only. Forever will not change a secure button in a fight. Open the demon flyout before combat if you need to swap pets mid-fight.
 
 ## Summon queue
 
